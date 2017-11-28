@@ -436,13 +436,19 @@ bool EntityDef::loadInterfaces(const std::string& defFilePath,
 							   TiXmlNode* defNode, 
 							   ScriptDefModule* pScriptModule)
 {
-	TiXmlNode* implementsNode = defxml->enterNode(defNode, "Implements");
+	TiXmlNode* implementsNode = defxml->enterNode(defNode, "Interfaces");
 	if(implementsNode == NULL)
 		return true;
 
 	XML_FOR_BEGIN(implementsNode)
 	{
+		if (defxml->getKey(implementsNode) != "Interface")
+			continue;
+
 		TiXmlNode* interfaceNode = defxml->enterNode(implementsNode, "Interface");
+		if (!interfaceNode)
+			continue;
+
 		std::string interfaceName = defxml->getKey(interfaceNode);
 		std::string interfacefile = defFilePath + "interfaces/" + interfaceName + ".def";
 		SmartPointer<XML> interfaceXml(new XML());
@@ -1323,6 +1329,11 @@ bool EntityDef::isLoadScriptModule(ScriptDefModule* pScriptModule)
 
 			break;
 		}
+	case TOOL_TYPE:
+	{
+		return false;
+		break;
+	}
 	default:
 		{
 			if(!pScriptModule->hasCell())

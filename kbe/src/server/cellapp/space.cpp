@@ -67,7 +67,11 @@ destroyTime_(0)
 //-------------------------------------------------------------------------------------
 Space::~Space()
 {
+	_clearGhosts();
 	entities_.clear();
+	
+	this->coordinateSystem_.releaseNodes();
+	
 	pNavHandle_.clear();
 
 	SAFE_RELEASE(pCell_);	
@@ -360,13 +364,20 @@ void Space::onAllSpaceGeometryLoaded()
 //-------------------------------------------------------------------------------------
 bool Space::update()
 {
-	if(destroyTime_ > 0 && timestamp() - destroyTime_ >= uint64( 5.f * stampsPerSecond() ))
-		return false;
+	if(destroyTime_ > 0 && timestamp() - destroyTime_ >= uint64( 3.f * stampsPerSecond() ))
+	{
+		if(entities_.size() == 0)
+			return false;
+	}
 
 	this->coordinateSystem_.releaseNodes();
 
-	if(destroyTime_ > 0 && timestamp() - destroyTime_ >= uint64( 4.f * stampsPerSecond() ))
+	if(destroyTime_ > 0 && timestamp() - destroyTime_ >= uint64( 30.f * stampsPerSecond() ))
+	{
 		_clearGhosts();
+		KBE_ASSERT(entities_.size() == 0);
+		this->coordinateSystem_.releaseNodes();
+	}
 		
 	return true;
 }
@@ -490,7 +501,7 @@ Entity* Space::findEntity(ENTITY_ID entityID)
 }
 
 //-------------------------------------------------------------------------------------
-bool Space::destroy(ENTITY_ID entityID)
+bool Space::destroy(ENTITY_ID entityID, bool ignoreGhost)
 {
 	if(state_ != STATE_NORMAL)
 		return false;
@@ -543,6 +554,9 @@ bool Space::destroy(ENTITY_ID entityID)
 			}
 		}
 	}
+
+	if(!ignoreGhost)
+		_clearGhosts();
 
 	return true;
 }
@@ -635,11 +649,11 @@ void Space::onSpaceDataChanged(const std::string& key, const std::string& value,
 			continue;
 
 		Network::Bundle* pSendBundle = Network::Bundle::createPoolObject();
-		NETWORK_ENTITY_MESSAGE_FORWARD_CLIENT_START(pEntity->id(), (*pSendBundle));
+		NETWORK_ENTITY_MESSAGE_FORWARD_CLIENT_BEGIN(pEntity->id(), (*pSendBundle));
 		
 		if(!isdel)
 		{
-			ENTITY_MESSAGE_FORWARD_CLIENT_START(pSendBundle, ClientInterface::setSpaceData, set);
+			ENTITY_MESSAGE_FORWARD_CLIENT_BEGIN(pSendBundle, ClientInterface::setSpaceData, set);
 			(*pSendBundle) << this->id();
 			(*pSendBundle) << key;
 			(*pSendBundle) << value;
@@ -647,7 +661,7 @@ void Space::onSpaceDataChanged(const std::string& key, const std::string& value,
 		}
 		else
 		{
-			ENTITY_MESSAGE_FORWARD_CLIENT_START(pSendBundle, ClientInterface::delSpaceData, del);
+			ENTITY_MESSAGE_FORWARD_CLIENT_BEGIN(pSendBundle, ClientInterface::delSpaceData, del);
 			(*pSendBundle) << this->id();
 			(*pSendBundle) << key;
 			ENTITY_MESSAGE_FORWARD_CLIENT_END(pSendBundle, ClientInterface::delSpaceData, del);
@@ -682,9 +696,9 @@ void Space::_addSpaceDatasToEntityClient(const Entity* pEntity)
 	}
 
 	Network::Bundle* pSendBundle = Network::Bundle::createPoolObject();
-	NETWORK_ENTITY_MESSAGE_FORWARD_CLIENT_START(pEntity->id(), (*pSendBundle));
+	NETWORK_ENTITY_MESSAGE_FORWARD_CLIENT_BEGIN(pEntity->id(), (*pSendBundle));
 
-	ENTITY_MESSAGE_FORWARD_CLIENT_START(pSendBundle, ClientInterface::initSpaceData, init);
+	ENTITY_MESSAGE_FORWARD_CLIENT_BEGIN(pSendBundle, ClientInterface::initSpaceData, init);
 	(*pSendBundle) << this->id();
 
 	SPACE_DATA::iterator iter = datas_.begin();
